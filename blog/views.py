@@ -3,10 +3,6 @@ from django.shortcuts import render
 from blog.models import Comment, Post, Tag
 
 
-def get_related_posts_count():
-    return Tag.objects.annotate(Count('posts'))
-
-
 def serialize_post(post):
     return {
         'title': post.title,
@@ -54,8 +50,7 @@ def index(request):
     fresh_posts = Post.objects.annotate(comments_count=Count('comments')).order_by('-published_at')
     most_fresh_posts = fresh_posts.prefetch_related('author')[:5][::-1]
 
-    tags_annotated_posts = get_related_posts_count()
-    most_popular_tags = tags_annotated_posts.order_by('posts__count')[::-1][:5]
+    most_popular_tags = Tag.objects.popular()[:5]
 
     context = {
         'most_popular_posts': [
@@ -94,8 +89,7 @@ def post_detail(request, slug):
         'tags': [serialize_tag(tag) for tag in related_tags],
     }
 
-    tags_annotated_posts = get_related_posts_count()
-    most_popular_tags = tags_annotated_posts.order_by('post_count')[::-1][:5]
+    most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = []  # TODO. Как это посчитать?
 
@@ -112,12 +106,11 @@ def post_detail(request, slug):
 def tag_filter(request, tag_title):
     tag = Tag.objects.get(title=tag_title)
 
-    tags_annotated_posts = get_related_posts_count()
-    most_popular_tags = tags_annotated_posts.order_by('post_count')[::-1][:5]
+    most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = []  # TODO. Как это посчитать?
 
-    related_posts = tag.posts.all()[:20]
+    related_posts = tag.posts.prefetch_related('author')[:20]
 
     context = {
         'tag': tag.title,
