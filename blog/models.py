@@ -4,6 +4,24 @@ from django.contrib.auth.models import User
 from django.db.models import Count
 
 
+class PostQuerySet(models.QuerySet):
+    def popular(self):
+        return self.annotate(likes_count=Count('likes')).order_by('-likes_count')
+
+    def fetch_with_comments_count(self):
+        # Эта функция предоставляет оптимальный подход для подсчета количества
+        # комментариев и позволяет ускорить загрузку страницы в отличие
+        # от использования двух annotate, которые создают большую нагрузку на БД.
+        most_popular_posts = self
+        most_popular_posts_ids = [post.id for post in most_popular_posts]
+        post_with_comments = Post.objects.filter(id__in=most_popular_posts_ids).annotate(comments_count=Count('comments'))
+        ids_and_comments = post_with_comments.values_list('id', 'comments_count')
+        count_for_id = dict(ids_and_comments)
+        for post in most_popular_posts:
+            post.comments_count = count_for_id[post.id]
+        return most_popular_posts
+
+
 class Post(models.Model):
     title = models.CharField('Заголовок', max_length=200)
     text = models.TextField('Текст')
@@ -25,6 +43,8 @@ class Post(models.Model):
         'Tag',
         related_name='posts',
         verbose_name='Теги')
+
+    objects = PostQuerySet.as_manager()
 
     def __str__(self):
         return self.title
