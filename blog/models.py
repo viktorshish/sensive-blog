@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 
 
 class PostQuerySet(models.QuerySet):
@@ -19,17 +19,6 @@ class PostQuerySet(models.QuerySet):
         count_for_id = dict(ids_and_comments)
         for post in posts:
             post.comments_count = count_for_id[post.id]
-        return posts
-
-    def fetch_with_posts_count(self):
-        posts = self
-        tags_with_ids = [tag.id for post in posts for tag in post.tags.all()]
-        tags_with_count = Tag.objects.filter(id__in=tags_with_ids).annotate(posts_count=Count('posts'))
-        ids_and_tags = tags_with_count.values_list('id', 'posts_count')
-        count_for_id = dict(ids_and_tags)
-        for post in posts:
-            for tag in post.tags.all():
-                tag.posts_count = count_for_id[tag.id]
         return posts
 
     def fresh(self):

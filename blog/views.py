@@ -40,15 +40,11 @@ def serialize_tag(tag):
 
 def index(request):
     most_popular_posts = Post.objects.popular() \
-        .prefetch_related('author', 'tags')[:5] \
-        .fetch_with_comments_count() \
-        .fetch_with_posts_count()
+        .prefetch_related('author', fetch_posts_count())[:5] \
+        .fetch_with_comments_count()
 
-    fresh_posts = Post.objects.fresh() \
-        .prefetch_related('author', 'tags') \
-        .fetch_with_posts_count()[:5]
-
-    most_fresh_posts = list(fresh_posts)[::-1]
+    most_fresh_posts = Post.objects.fresh() \
+        .prefetch_related('author', fetch_posts_count())[:5][::-1]
 
     most_popular_tags = Tag.objects.popular()[:5]
 
@@ -60,6 +56,10 @@ def index(request):
         'popular_tags': [serialize_tag(tag) for tag in most_popular_tags],
     }
     return render(request, 'index.html', context)
+
+
+def fetch_posts_count():
+    return Prefetch('tags', queryset=Tag.objects.annotate(posts_count=Count('posts')))
 
 
 def post_detail(request, slug):
@@ -92,9 +92,8 @@ def post_detail(request, slug):
     most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = Post.objects.popular() \
-        .prefetch_related('author', 'tags')[:5] \
+        .prefetch_related('author', fetch_posts_count())[:5] \
         .fetch_with_comments_count() \
-        .fetch_with_posts_count()
 
     context = {
         'post': serialized_post,
@@ -112,11 +111,11 @@ def tag_filter(request, tag_title):
     most_popular_tags = Tag.objects.popular()[:5]
 
     most_popular_posts = Post.objects.popular() \
-        .prefetch_related('author', 'tags')[:5] \
+        .prefetch_related('author', fetch_posts_count())[:5] \
         .fetch_with_comments_count() \
-        .fetch_with_posts_count()
 
-    related_posts = tag.posts.prefetch_related('author', 'tags').annotate(comments_count=Count('comments'))[:20].fetch_with_posts_count()
+    related_posts = tag.posts.prefetch_related('author', fetch_posts_count()) \
+        .annotate(comments_count=Count('comments'))[:20]
 
     context = {
         'tag': tag.title,
