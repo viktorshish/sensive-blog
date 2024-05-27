@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 
 
 class PostQuerySet(models.QuerySet):
@@ -14,7 +14,8 @@ class PostQuerySet(models.QuerySet):
         # от использования двух annotate, которые создают большую нагрузку на БД.
         posts = self
         posts_ids = [post.id for post in posts]
-        post_with_comments = Post.objects.filter(id__in=posts_ids).annotate(comments_count=Count('comments'))
+        post_with_comments = Post.objects.filter(id__in=posts_ids) \
+            .annotate(comments_count=Count('comments'))
         ids_and_comments = post_with_comments.values_list('id', 'comments_count')
         count_for_id = dict(ids_and_comments)
         for post in posts:
@@ -23,6 +24,11 @@ class PostQuerySet(models.QuerySet):
 
     def fresh(self):
         return self.annotate(comments_count=Count('comments')).order_by('-published_at')
+
+    def fetch_posts_count(self):
+        return self.prefetch_related(
+            Prefetch('tags', queryset=Tag.objects.annotate(posts_count=Count('posts')))
+        )
 
 
 class Post(models.Model):
